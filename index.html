@@ -1,149 +1,3 @@
-// ===== File 2: Index.html (Apps Script фронтенд) =====
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Редактор базы</title>
-  <style>
-    :root{ --bg:#0b0c10; --card:#111317; --text:#e5e7eb; --muted:#9aa1aa; --line:#23262d; --brand:#19c37d; --bad:#ef4444 }
-    @media (prefers-color-scheme: light){ :root{ --bg:#f6f7f9; --card:#fff; --text:#1f2328; --muted:#6b7280; --line:#e5e7eb } }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif}
-    .wrap{max-width:980px;margin:0 auto;padding:16px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
-    h1{margin:0 0 10px;font-size:clamp(20px,4.5vw,28px)}
-    .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-    input,button{border:1px solid var(--line);background:transparent;color:var(--text);padding:8px 10px;border-radius:10px}
-    button{background:var(--brand);color:#072616;border-color:#16a34a;font-weight:600;cursor:pointer}
-    .muted{color:var(--muted)}
-    .danger{background:var(--bad);color:#fff;border-color:#b91c1c}
-    table{width:100%;border-collapse:separate;border-spacing:0 6px}
-    th,td{padding:8px 10px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-    th{text-align:left}
-    tr:hover td{background:rgba(25,195,125,.06)}
-    .chip{display:inline-block;padding:3px 8px;border:1px solid var(--line);border-radius:999px}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Редактор: <span id="alias"></span></h1>
-      <p class="muted">Выберите файл на портале → откроется этот редактор с нужным alias. Доступ по паролю.</p>
-
-      <div class="row" style="margin-bottom:10px">
-        <input id="pass" type="password" placeholder="Пароль" autocomplete="off">
-        <button id="btnLogin">Войти</button>
-        <span id="status" class="muted"></span>
-        <span class="chip">file=<span id="chip"></span></span>
-      </div>
-
-      <div id="panel" style="display:none">
-        <div class="card" style="margin-bottom:12px">
-          <div class="row">
-            <input id="c1" placeholder="Поле 1">
-            <input id="c2" placeholder="Поле 2">
-            <input id="c3" placeholder="Поле 3">
-            <input id="c4" placeholder="Поле 4">
-            <input id="c5" placeholder="Поле 5">
-            <button id="btnAdd">Добавить</button>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="row" style="margin-bottom:8px">
-            <input id="q" placeholder="Поиск...">
-            <span class="muted" id="count"></span>
-          </div>
-          <div style="overflow:auto">
-            <table id="tbl">
-              <thead><tr></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <script>
-    const qp = new URLSearchParams(location.search);
-    const FILE = qp.get('file') || '';
-    document.getElementById('alias').textContent = FILE || '—';
-    document.getElementById('chip').textContent = FILE || '—';
-
-    let PASS='';
-    let DATA=[]; let HEADERS=[];
-
-    const $ = s => document.querySelector(s);
-
-    $('#btnLogin').onclick = async () => {
-      PASS = $('#pass').value.trim();
-      $('#status').textContent = 'Входим...';
-      try{ await refresh(); $('#panel').style.display=''; $('#status').textContent='Ок'; }
-      catch(e){ $('#panel').style.display='none'; $('#status').textContent = (''+e).includes('AUTH')?'Неверный пароль':((''+e).includes('NOT_ALLOWED')?'Файл запрещён':'Ошибка'); }
-    };
-
-    $('#btnAdd').onclick = () => {
-      const obj = { c1:$('#c1').value.trim(), c2:$('#c2').value.trim(), c3:$('#c3').value.trim(), c4:$('#c4').value.trim(), c5:$('#c5').value.trim() };
-      if(Object.values(obj).every(v=>!v)){ alert('Заполните поля'); return; }
-      google.script.run.withFailureHandler(e=>alert(e.message||e)).withSuccessHandler(()=>{ ['#c1','#c2','#c3','#c4','#c5'].forEach(s=>$(s).value=''); refresh(); }).addRow(PASS, FILE, obj);
-    };
-
-    $('#q').oninput = () => render();
-
-    function refresh(){
-      return new Promise((res,rej)=>{
-        google.script.run.withFailureHandler(e=>rej(e)).withSuccessHandler(out=>{ HEADERS=out.headers; DATA=out.rows; render(); res(); }).listRows(PASS, FILE);
-      });
-    }
-
-    function render(){
-      const q = ($('#q').value||'').toLowerCase();
-      const rows = !q ? DATA : DATA.filter(r => Object.values(r).join(' ').toLowerCase().includes(q));
-      $('#count').textContent = `Записей: ${rows.length}`;
-      const thead = document.querySelector('#tbl thead tr');
-      thead.innerHTML = HEADERS.map(h=>`<th>${esc(h)}</th>`).join('') + '<th>Действия</th>';
-      const tbody = document.querySelector('#tbl tbody');
-      tbody.innerHTML = '';
-      for(const r of rows){
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="muted">${r.id}</td>
-          <td>${fmtDate(r.date)}</td>
-          <td><input value="${esc(r.c1)}" data-k="c1" style="width:160px"></td>
-          <td><input value="${esc(r.c2)}" data-k="c2" style="width:160px"></td>
-          <td><input value="${esc(r.c3)}" data-k="c3" style="width:160px"></td>
-          <td><input value="${esc(r.c4)}" data-k="c4" style="width:160px"></td>
-          <td><input value="${esc(r.c5)}" data-k="c5" style="min-width:220px"></td>
-          <td>
-            <button data-act="save" data-id="${r.id}">Сохранить</button>
-            <button class="danger" data-act="del" data-id="${r.id}">Удалить</button>
-          </td>`;
-        tbody.appendChild(tr);
-      }
-      tbody.querySelectorAll('button').forEach(b=>b.onclick=onRow);
-    }
-
-    function onRow(e){
-      const btn=e.currentTarget; const id=btn.dataset.id; const tr=btn.closest('tr');
-      if(btn.dataset.act==='save'){
-        const obj={ id };
-        tr.querySelectorAll('input[data-k]').forEach(i=>obj[i.dataset.k]=i.value);
-        google.script.run.withFailureHandler(e=>alert(e.message||e)).withSuccessHandler(()=>refresh()).updateRow(PASS, FILE, obj);
-      } else if(btn.dataset.act==='del'){
-        if(confirm('Удалить запись?')) google.script.run.withFailureHandler(e=>alert(e.message||e)).withSuccessHandler(()=>refresh()).deleteRow(PASS, FILE, id);
-      }
-    }
-
-    function fmtDate(d){ try{ return new Date(d).toLocaleString('ru-RU'); }catch(_){ return d; } }
-    function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  </script>
-</body>
-</html>
-
-<!-- ===== File 3: index.html (GitHub Pages — портал со списком файлов) ===== -->
 <!doctype html>
 <html lang="ru">
 <head>
@@ -164,13 +18,21 @@
     a.btn{display:inline-block;margin-top:8px;padding:8px 12px;border:1px solid #16a34a;background:var(--brand);color:#072616;border-radius:10px;text-decoration:none;font-weight:600}
     iframe{width:100%;height:860px;border:0;border-radius:12px}
     .muted{color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 12px}
+    input{border:1px solid var(--line);background:transparent;color:var(--text);padding:8px 10px;border-radius:10px}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <h1>Общая база — выбор файла</h1>
-      <p class="muted">Выберите файл. Редактирование откроется ниже (Apps Script веб‑приложение внутри iframe).</p>
+      <p class="muted">Выберите файл. Редактор откроется ниже (Apps Script внутри iframe).</p>
+
+      <div class="row">
+        <input id="webapp" placeholder="Вставьте URL веб-приложения Apps Script" style="flex:1 1 480px">
+        <a class="btn" id="saveUrl" href="#">Сохранить URL</a>
+        <span class="muted" id="urlStatus"></span>
+      </div>
 
       <div class="grid" id="list"></div>
 
@@ -181,19 +43,25 @@
   </div>
 
   <script>
-    // URL вашего веб‑приложения Apps Script:
-    const WEBAPP = 'PASTE_WEB_APP_URL_HERE';
-
-    // Тот же набор alias, что в Code.gs (для фронтенда портала):
+    // ===== Настройки =====
+    // Заполните список alias (должны совпадать с сервером):
     const FILES = [
       { alias:'clients', title:'Клиенты' },
       { alias:'orders',  title:'Заказы'  },
       { alias:'stock',   title:'Склад'   },
     ];
-
-    const list = document.getElementById('list');
+    const list  = document.getElementById('list');
     const frame = document.getElementById('frame');
+    const urlInp= document.getElementById('webapp');
+    const urlMsg= document.getElementById('urlStatus');
 
+    // Храним WEBAPP в localStorage (ключ 'WEBAPP_URL')
+    const getWebapp = () => localStorage.getItem('WEBAPP_URL') || '';
+    const setWebapp = (u) => localStorage.setItem('WEBAPP_URL', u);
+
+    const isValidWebApp = (u) => /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?.*)?$/.test(u);
+
+    // Рендер карточек файлов
     FILES.forEach(f=>{
       const div = document.createElement('div');
       div.className='item';
@@ -201,13 +69,43 @@
       list.appendChild(div);
     });
 
+    // Обработчики
     list.addEventListener('click', e=>{
       const a = e.target.closest('a.btn'); if(!a) return;
       e.preventDefault();
-      const alias = a.dataset.a;
-      frame.src = WEBAPP + `?file=${encodeURIComponent(alias)}`;
-      frame.scrollIntoView({behavior:'smooth',block:'start'});
+      openAlias(a.dataset.a);
     });
+
+    document.getElementById('saveUrl').addEventListener('click', e=>{
+      e.preventDefault();
+      const val = urlInp.value.trim();
+      if (!isValidWebApp(val)) { urlMsg.textContent = 'Неверный URL веб-приложения'; return; }
+      setWebapp(val);
+      urlMsg.textContent = 'Сохранено';
+    });
+
+    urlInp.addEventListener('keydown', e=>{
+      if (e.key==='Enter') document.getElementById('saveUrl').click();
+    });
+
+    function openAlias(alias){
+      const WEBAPP = getWebapp();
+      if (!WEBAPP){ urlMsg.textContent = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTSnv8soX3snUmI_ptEzd120tL2pm9p8vwkuuSo_Cj4RXloG0TKwE15WfDxfoDUBSmBFq_Ixi-3SPPT/pub?gid=0&single=true&output=csv'; urlInp.focus(); return; }
+      frame.src = WEBAPP + `?file=${encodeURIComponent(alias)}`;
+      localStorage.setItem('LAST_ALIAS', alias);
+      frame.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+
+    // Инициализация
+    (function init(){
+      const saved = getWebapp();
+      if (saved) urlInp.value = saved;
+      const last = localStorage.getItem('LAST_ALIAS');
+      if (saved && last){
+        // авто-открытие последнего alias
+        openAlias(last);
+      }
+    })();
   </script>
 </body>
 </html>
