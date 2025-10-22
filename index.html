@@ -1,111 +1,139 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>База — портал редактора</title>
-  <meta name="color-scheme" content="light dark">
-  <style>
-    :root{ --bg:#0b0c10;--card:#111317;--text:#e5e7eb;--muted:#9aa1aa;--line:#23262d;--brand:#19c37d }
-    @media (prefers-color-scheme: light){ :root{ --bg:#f6f7f9;--card:#fff;--text:#1f2328;--muted:#6b7280;--line:#e5e7eb } }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif}
-    .wrap{max-width:1000px;margin:0 auto;padding:16px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
-    h1{margin:0 0 10px;font-size:clamp(20px,4.5vw,28px)}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-    .item{border:1px solid var(--line);border-radius:12px;padding:12px}
-    a.btn{display:inline-block;margin-top:8px;padding:8px 12px;border:1px solid #16a34a;background:var(--brand);color:#072616;border-radius:10px;text-decoration:none;font-weight:600}
-    iframe{width:100%;height:860px;border:0;border-radius:12px}
-    .muted{color:var(--muted)}
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 12px}
-    input{border:1px solid var(--line);background:transparent;color:var(--text);padding:8px 10px;border-radius:10px}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Общая база — портал с паролем</title>
+<meta name="color-scheme" content="light dark">
+<style>
+:root{--bg:#0b0c10;--card:#111317;--text:#e5e7eb;--muted:#9aa1aa;--line:#23262d;--brand:#19c37d}
+@media (prefers-color-scheme: light){:root{--bg:#f6f7f9;--card:#fff;--text:#1f2328;--muted:#6b7280;--line:#e5e7eb}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid:var(--line);border-radius:14px;padding:14px}
+h1{margin:0 0 10px;font-size:clamp(20px,4.5vw,28px)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.item{border:1px solid var(--line);border-radius:12px;padding:12px}
+.btn{display:inline-block;margin-top:8px;padding:8px 12px;border:1px solid #16a34a;background:var(--brand);color:#072616;border-radius:10px;text-decoration:none;font-weight:600;cursor:pointer}
+iframe{width:100%;height:860px;border:0;border-radius:12px}
+.muted{color:var(--muted)}
+/* Вход по паролю (оверлей) */
+.gate{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:10}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;max-width:420px;width:92%}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input{border:1px solid var(--line);background:transparent;color:var(--text);padding:8px 10px;border-radius:10px;flex:1 1 auto}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Общая база — выбор файла</h1>
-      <p class="muted">Выберите файл. Редактор откроется ниже (Apps Script внутри iframe).</p>
-
-      <div class="row">
-        <input id="webapp" placeholder="Вставьте URL веб-приложения Apps Script" style="flex:1 1 480px">
-        <a class="btn" id="saveUrl" href="#">Сохранить URL</a>
-        <span class="muted" id="urlStatus"></span>
-      </div>
-
-      <div class="grid" id="list"></div>
-
-      <div style="margin-top:14px">
-        <iframe id="frame" src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-      </div>
-    </div>
+<div class="wrap">
+  <div class="card">
+    <h1>Общая база — выбор файла</h1>
+    <p class="muted">После ввода пароля выберите файл. Редактор откроется ниже.</p>
+    <div class="grid" id="list"></div>
+    <div style="margin-top:14px"><iframe id="frame" src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
   </div>
+</div>
 
-  <script>
-    // ===== Настройки =====
-    // Заполните список alias (должны совпадать с сервером):
-    const FILES = [
-      { alias:'clients', title:'Клиенты' },
-      { alias:'orders',  title:'Заказы'  },
-      { alias:'stock',   title:'Склад'   },
-    ];
-    const list  = document.getElementById('list');
-    const frame = document.getElementById('frame');
-    const urlInp= document.getElementById('webapp');
-    const urlMsg= document.getElementById('urlStatus');
+<!-- Оверлей ввода пароля -->
+<div class="gate" id="gate">
+  <div class="panel">
+    <h2 style="margin:0 0 10px;font-size:20px">Доступ по паролю</h2>
+    <div class="row">
+      <input id="pass" type="password" placeholder="Введите пароль">
+      <button class="btn" id="enter">Войти</button>
+    </div>
+    <div class="muted" id="msg" style="margin-top:8px"></div>
+  </div>
+</div>
 
-    // Храним WEBAPP в localStorage (ключ 'WEBAPP_URL')
-    const getWebapp = () => localStorage.getItem('WEBAPP_URL') || '';
-    const setWebapp = (u) => localStorage.setItem('WEBAPP_URL', u);
+<script>
+/* === НАСТРОЙКИ === */
+// URL вашего веб-приложения Apps Script (оканчивается на /exec)
+const WEBAPP = 'https://script.google.com/macros/s/PASTE_DEPLOYMENT_ID/exec';
+// Список файлов (alias должен совпадать с сервером)
+const FILES = [
+  { alias:'clients', title:'Клиенты' },
+  { alias:'orders',  title:'Заказы'  },
+  { alias:'stock',   title:'Склад'   },
+];
+// Пароль по умолчанию (для генерации эталонного хеша один раз на клиенте)
+const PLAIN_PASSWORD = '1980'; // ← замените при необходимости
 
-    const isValidWebApp = (u) => /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?.*)?$/.test(u);
+/* === ИНИЦИАЛИЗАЦИЯ СПИСКА === */
+const list = document.getElementById('list');
+const frame = document.getElementById('frame');
+FILES.forEach(f=>{
+  const div = document.createElement('div');
+  div.className='item';
+  div.innerHTML = `<b>${f.title}</b><br><span class="muted">alias: ${f.alias}</span><br>
+                   <a class="btn" href="#" data-a="${f.alias}">Открыть</a>`;
+  list.appendChild(div);
+});
 
-    // Рендер карточек файлов
-    FILES.forEach(f=>{
-      const div = document.createElement('div');
-      div.className='item';
-      div.innerHTML = `<b>${f.title}</b><br><span class="muted">alias: ${f.alias}</span><br><a class="btn" href="#" data-a="${f.alias}">Открыть</a>`;
-      list.appendChild(div);
-    });
+/* === ПРОСТАЯ ГАРДИРОВКА ПАРОЛЕМ ===
+   ВНИМАНИЕ: это не защита, код и хеш видны пользователю.
+   Реальная защита — на сервере в Code.gs (обязательно оставить проверку пароля).
+*/
+const gate = document.getElementById('gate');
+const passInp = document.getElementById('pass');
+const enterBtn = document.getElementById('enter');
+const msg = document.getElementById('msg');
 
-    // Обработчики
-    list.addEventListener('click', e=>{
-      const a = e.target.closest('a.btn'); if(!a) return;
-      e.preventDefault();
-      openAlias(a.dataset.a);
-    });
+let sessionPass = ''; // хранится в памяти вкладки
 
-    document.getElementById('saveUrl').addEventListener('click', e=>{
-      e.preventDefault();
-      const val = urlInp.value.trim();
-      if (!isValidWebApp(val)) { urlMsg.textContent = 'Неверный URL веб-приложения'; return; }
-      setWebapp(val);
-      urlMsg.textContent = 'Сохранено';
-    });
+// Посчитаем эталонный хеш пароля на старте (по PLAIN_PASSWORD)
+let EXPECTED_HASH = '';
+(async function initHash(){
+  EXPECTED_HASH = await sha256(PLAIN_PASSWORD);
+})();
 
-    urlInp.addEventListener('keydown', e=>{
-      if (e.key==='Enter') document.getElementById('saveUrl').click();
-    });
+// Проверка пароля
+async function tryEnter(){
+  const p = passInp.value.trim();
+  if(!p){ msg.textContent = 'Введите пароль'; return; }
+  const h = await sha256(p);
+  if (h !== EXPECTED_HASH){
+    msg.textContent = 'Неверный пароль';
+    passInp.select();
+    return;
+  }
+  // успех
+  sessionPass = p;
+  gate.style.display = 'none';
+  msg.textContent = '';
+  // авто-открыть последний alias, если был
+  const last = localStorage.getItem('LAST_ALIAS');
+  if (last) openAlias(last);
+}
 
-    function openAlias(alias){
-      const WEBAPP = getWebapp();
-      if (!WEBAPP){ urlMsg.textContent = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTSnv8soX3snUmI_ptEzd120tL2pm9p8vwkuuSo_Cj4RXloG0TKwE15WfDxfoDUBSmBFq_Ixi-3SPPT/pub?gid=0&single=true&output=csv'; urlInp.focus(); return; }
-      frame.src = WEBAPP + `?file=${encodeURIComponent(alias)}`;
-      localStorage.setItem('LAST_ALIAS', alias);
-      frame.scrollIntoView({behavior:'smooth',block:'start'});
-    }
+enterBtn.addEventListener('click', tryEnter);
+passInp.addEventListener('keydown', e=>{ if(e.key==='Enter') tryEnter(); });
 
-    // Инициализация
-    (function init(){
-      const saved = getWebapp();
-      if (saved) urlInp.value = saved;
-      const last = localStorage.getItem('LAST_ALIAS');
-      if (saved && last){
-        // авто-открытие последнего alias
-        openAlias(last);
-      }
-    })();
-  </script>
+// Открытие alias -> загружаем iframe с pass
+function openAlias(alias){
+  if (!sessionPass){ gate.style.display=''; passInp.focus(); return; }
+  const url = WEBAPP + `?file=${encodeURIComponent(alias)}&pass=${encodeURIComponent(sessionPass)}`;
+  frame.src = url;
+  localStorage.setItem('LAST_ALIAS', alias);
+  frame.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+list.addEventListener('click', e=>{
+  const a = e.target.closest('a.btn'); if(!a) return;
+  e.preventDefault();
+  openAlias(a.dataset.a);
+});
+
+/* === SHA-256 (Web Crypto) === */
+async function sha256(text){
+  const enc = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  const bytes = Array.from(new Uint8Array(buf));
+  // web-safe base64, чтобы совпадало с серверной реализацией при желании
+  let bin = String.fromCharCode(...bytes);
+  let b64 = btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return b64;
+}
+</script>
 </body>
 </html>
