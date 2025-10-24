@@ -1,138 +1,208 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Общая база — портал с паролем</title>
-<meta name="color-scheme" content="light dark">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Вход</title>
 <style>
-:root{--bg:#0b0c10;--card:#111317;--text:#e5e7eb;--muted:#9aa1aa;--line:#23262d;--brand:#19c37d}
-@media (prefers-color-scheme: light){:root{--bg:#f6f7f9;--card:#fff;--text:#1f2328;--muted:#6b7280;--line:#e5e7eb}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif}
-.wrap{max-width:1000px;margin:0 auto;padding:16px}
-.card{background:var(--card);border:1px solid:var(--line);border-radius:14px;padding:14px}
-h1{margin:0 0 10px;font-size:clamp(20px,4.5vw,28px)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-.item{border:1px solid var(--line);border-radius:12px;padding:12px}
-.btn{display:inline-block;margin-top:8px;padding:8px 12px;border:1px solid #16a34a;background:var(--brand);color:#072616;border-radius:10px;text-decoration:none;font-weight:600;cursor:pointer}
-iframe{width:100%;height:860px;border:0;border-radius:12px}
-.muted{color:var(--muted)}
-/* Вход по паролю (оверлей) */
-.gate{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:10}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;max-width:420px;width:92%}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-input{border:1px solid var(--line);background:transparent;color:var(--text);padding:8px 10px;border-radius:10px;flex:1 1 auto}
+:root{--bg:#f6f8fb;--card:#fff;--line:#e5e7eb;--muted:#6b7280;--brand:#facc15;--ok:#10b981;--err:#ef4444}
+body{margin:0;background:var(--bg);font:16px/1.4 system-ui,Segoe UI,Roboto,Arial}
+.wrap{max-width:900px;margin:8vh auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.06);padding:20px}
+h1{font-size:18px;margin:0 0 12px}
+label{display:block;font-size:13px;color:var(--muted);margin:8px 0 6px}
+input{width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:12px;font:inherit}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer}
+.btn.brand{background:var(--brand);border:none}
+.btn.ok{background:var(--ok);border:none;color:#fff}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.row{display:flex;gap:8px;align-items:center;margin-top:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.small{font-size:12px;color:var(--muted)}
+.err{color:var(--err);margin-top:8px}
+.hidden{display:none}
+.cardx{border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff}
+.cardx h3{margin:0 0 8px;font-size:16px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="card">
-    <h1>Общая база — выбор файла</h1>
-    <p class="muted">После ввода пароля выберите файл. Редактор откроется ниже.</p>
-    <div class="grid" id="list"></div>
-    <div style="margin-top:14px"><iframe id="frame" src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
-  </div>
-</div>
-
-<!-- Оверлей ввода пароля -->
-<div class="gate" id="gate">
-  <div class="panel">
-    <h2 style="margin:0 0 10px;font-size:20px">Доступ по паролю</h2>
+  <div id="gate" class="card">
+    <h1>Вход в портал</h1>
+    <label>Пароль</label>
+    <input id="gatepwd" type="password" placeholder="Введите общий пароль">
     <div class="row">
-      <input id="pass" type="password" placeholder="Введите пароль">
-      <button class="btn" id="enter">Войти</button>
+      <button id="go" class="btn brand">Далее ➜</button>
     </div>
-    <div class="muted" id="msg" style="margin-top:8px"></div>
+    <div id="gmsg" class="err hidden"></div>
+    <div class="small">После входа появятся карточки администратора и пользователей.</div>
+  </div>
+
+  <div id="desk" class="card hidden">
+    <div class="row">
+      <h1>Панель</h1>
+      <button id="logout" class="btn">Выйти</button>
+    </div>
+    <div id="cards" class="grid"></div>
+    <div id="amsg" class="err hidden"></div>
+  </div>
+
+  <div id="admin" class="card hidden">
+    <div class="row">
+      <h1>Администратор</h1>
+      <button id="aback" class="btn">← Назад</button>
+    </div>
+    <div class="small">Измените данные и нажмите «Сохранить». Пароли задаются кнопкой «Пароль…»</div>
+    <div id="atable"></div>
   </div>
 </div>
 
 <script>
-/* === НАСТРОЙКИ === */
-// URL вашего веб-приложения Apps Script (оканчивается на /exec)
-const WEBAPP = 'https://script.google.com/macros/s/PASTE_DEPLOYMENT_ID/exec';
-// Список файлов (alias должен совпадать с сервером)
-const FILES = [
-  { alias:'clients', title:'Клиенты' },
-  { alias:'orders',  title:'Заказы'  },
-  { alias:'stock',   title:'Склад'   },
-];
-// Пароль по умолчанию (для генерации эталонного хеша один раз на клиенте)
-const PLAIN_PASSWORD = '1980'; // ← замените при необходимости
+const $ = s=>document.querySelector(s);
+const Gate = {wrap:$('#gate'), pwd:$('#gatepwd'), go:$('#go'), msg:$('#gmsg')};
+const Desk = {wrap:$('#desk'), cards:$('#cards'), msg:$('#amsg'), logout:$('#logout')};
+const Adm  = {wrap:$('#admin'), back:$('#aback'), table:$('#atable')};
 
-/* === ИНИЦИАЛИЗАЦИЯ СПИСКА === */
-const list = document.getElementById('list');
-const frame = document.getElementById('frame');
-FILES.forEach(f=>{
-  const div = document.createElement('div');
-  div.className='item';
-  div.innerHTML = `<b>${f.title}</b><br><span class="muted">alias: ${f.alias}</span><br>
-                   <a class="btn" href="#" data-a="${f.alias}">Открыть</a>`;
-  list.appendChild(div);
+function show(el){ el.classList.remove('hidden'); }
+function hide(el){ el.classList.add('hidden'); }
+function err(el, t){ if(t){ el.textContent=t; el.classList.remove('hidden'); } else { el.textContent=''; el.classList.add('hidden'); } }
+
+Gate.go.addEventListener('click', ()=>{
+  err(Gate.msg,''); Gate.go.disabled=true;
+  google.script.run.withSuccessHandler(res=>{
+    Gate.go.disabled=false;
+    if(!res.ok){ err(Gate.msg,res.msg||'Ошибка'); return; }
+    window.__users = res.users || [];
+    renderCards();
+    hide(Gate.wrap); show(Desk.wrap);
+  }).api_gateLogin(Gate.pwd.value);
 });
 
-/* === ПРОСТАЯ ГАРДИРОВКА ПАРОЛЕМ ===
-   ВНИМАНИЕ: это не защита, код и хеш видны пользователю.
-   Реальная защита — на сервере в Code.gs (обязательно оставить проверку пароля).
-*/
-const gate = document.getElementById('gate');
-const passInp = document.getElementById('pass');
-const enterBtn = document.getElementById('enter');
-const msg = document.getElementById('msg');
+Desk.logout.addEventListener('click', ()=>{
+  hide(Desk.wrap); hide(Adm.wrap);
+  show(Gate.wrap); Gate.pwd.value=''; Gate.pwd.focus();
+});
 
-let sessionPass = ''; // хранится в памяти вкладки
+Adm.back.addEventListener('click', ()=>{
+  hide(Adm.wrap); show(Desk.wrap);
+});
 
-// Посчитаем эталонный хеш пароля на старте (по PLAIN_PASSWORD)
-let EXPECTED_HASH = '';
-(async function initHash(){
-  EXPECTED_HASH = await sha256(PLAIN_PASSWORD);
-})();
+function renderCards(){
+  const box = Desk.cards; box.innerHTML='';
+  (window.__users||[]).forEach(u=>{
+    const el = document.createElement('div'); el.className='cardx';
+    const ro = u.role==='admin'?'Администратор': u.role==='editor'?'Редактор':'Просмотр';
+    el.innerHTML = `
+      <h3>${u.name}</h3>
+      <div class="small">Роль: ${ro}</div>
+      <div class="row" style="margin-top:10px">
+        <input type="password" placeholder="${u.role==='admin'?'Пароль администратора':'Пароль пользователя'}" ${u.protected?'':'disabled'} data-pw="${u.name}">
+        <button class="btn ok" data-open="${u.name}">${u.role==='admin'?'Открыть панель':'Открыть'}</button>
+      </div>
+      ${u.protected?'':'<div class="small">Пароль не требуется</div>'}
+    `;
+    box.appendChild(el);
+  });
 
-// Проверка пароля
-async function tryEnter(){
-  const p = passInp.value.trim();
-  if(!p){ msg.textContent = 'Введите пароль'; return; }
-  const h = await sha256(p);
-  if (h !== EXPECTED_HASH){
-    msg.textContent = 'Неверный пароль';
-    passInp.select();
-    return;
+  box.querySelectorAll('[data-open]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const name = e.currentTarget.dataset.open;
+      const inp  = box.querySelector(`input[data-pw="${name}"]`);
+      const pwd  = inp ? inp.value : '';
+      err(Desk.msg,'');
+      google.script.run.withSuccessHandler(r=>{
+        if(!r || !r.ok){ err(Desk.msg, r&&r.msg? r.msg : 'Ошибка'); return; }
+        if (r.admin){
+          buildAdmin(r.users);
+          hide(Desk.wrap); show(Adm.wrap);
+        }else if(r.url){
+          window.open(r.url,'_blank','noopener');
+        }
+      }).api_userOpen(name, pwd);
+    });
+  });
+}
+
+function buildAdmin(users){
+  const box = Adm.table; box.innerHTML='';
+  const makeRow = (u)=> `
+    <tr>
+      <td><input data-f="name" value="${u.name||''}" style="width:160px"></td>
+      <td>
+        <select data-f="role">
+          <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
+          <option value="editor" ${u.role==='editor'?'selected':''}>editor</option>
+          <option value="viewer" ${u.role==='viewer'?'selected':''}>viewer</option>
+        </select>
+      </td>
+      <td><input data-f="doc_id" value="${u.doc_id||''}" style="width:280px"></td>
+      <td><input data-f="sheet"  value="${u.sheet||''}"  style="width:160px"></td>
+      <td style="text-align:center"><input type="checkbox" data-f="enabled" ${u.enabled?'checked':''}></td>
+      <td style="text-align:center"><input type="checkbox" data-f="can_edit" ${u.can_edit?'checked':''}></td>
+      <td>
+        <button class="btn" data-act="save">Сохранить</button>
+        <button class="btn" data-act="pwd">Пароль…</button>
+      </td>
+    </tr>`;
+  box.innerHTML = `
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="text-align:left;border-bottom:1px solid var(--line)">
+          <th>Имя</th><th>Роль</th><th>doc_id</th><th>sheet</th>
+          <th>Вкл</th><th>Редакт.</th><th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>${users.map(makeRow).join('')}</tbody>
+    </table>
+    <div class="row" style="margin-top:10px">
+      <button id="add" class="btn">+ Добавить</button>
+    </div>
+  `;
+
+  box.querySelector('#add').addEventListener('click', ()=>{
+    const tbody = box.querySelector('tbody');
+    const blank = {name:'Новый', role:'viewer', enabled:true, can_edit:false, doc_id:'', sheet:''};
+    tbody.insertAdjacentHTML('beforeend', makeRow(blank));
+    bindRow(tbody.lastElementChild);
+  });
+
+  box.querySelectorAll('tbody tr').forEach(bindRow);
+
+  function bindRow(tr){
+    const q = sel => tr.querySelector(sel);
+    const read = ()=>{
+      return {
+        currentName: q('input[data-f="name"]').getAttribute('value'),
+        name:  q('input[data-f="name"]').value.trim(),
+        role:  q('select[data-f="role"]').value,
+        doc_id:q('input[data-f="doc_id"]').value.trim(),
+        sheet: q('input[data-f="sheet"]').value.trim(),
+        enabled:q('input[data-f="enabled"]').checked,
+        can_edit:q('input[data-f="can_edit"]').checked
+      };
+    };
+    tr.querySelectorAll('[data-act="save"]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const payload = read();
+        google.script.run.withSuccessHandler(r=>{
+          if(!r || !r.ok){ alert(r&&r.msg? r.msg:'Ошибка'); return; }
+          alert('Сохранено');
+          tr.querySelector('input[data-f="name"]').setAttribute('value', payload.name);
+        }).api_adminUpsert(payload);
+      });
+    });
+    tr.querySelectorAll('[data-act="pwd"]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const name = q('input[data-f="name"]').value.trim();
+        const np = prompt('Новый пароль для: '+name);
+        if(!np) return;
+        google.script.run.withSuccessHandler(r=>{
+          if(!r || !r.ok){ alert(r&&r.msg? r.msg:'Ошибка'); return; }
+          alert('Пароль обновлён (salt+hash записаны в таблицу).');
+        }).api_adminResetPassword(name, np);
+      });
+    });
   }
-  // успех
-  sessionPass = p;
-  gate.style.display = 'none';
-  msg.textContent = '';
-  // авто-открыть последний alias, если был
-  const last = localStorage.getItem('LAST_ALIAS');
-  if (last) openAlias(last);
-}
-
-enterBtn.addEventListener('click', tryEnter);
-passInp.addEventListener('keydown', e=>{ if(e.key==='Enter') tryEnter(); });
-
-// Открытие alias -> загружаем iframe с pass
-function openAlias(alias){
-  if (!sessionPass){ gate.style.display=''; passInp.focus(); return; }
-  const url = WEBAPP + `?file=${encodeURIComponent(alias)}&pass=${encodeURIComponent(sessionPass)}`;
-  frame.src = url;
-  localStorage.setItem('LAST_ALIAS', alias);
-  frame.scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-list.addEventListener('click', e=>{
-  const a = e.target.closest('a.btn'); if(!a) return;
-  e.preventDefault();
-  openAlias(a.dataset.a);
-});
-
-/* === SHA-256 (Web Crypto) === */
-async function sha256(text){
-  const enc = new TextEncoder().encode(text);
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  const bytes = Array.from(new Uint8Array(buf));
-  // web-safe base64, чтобы совпадало с серверной реализацией при желании
-  let bin = String.fromCharCode(...bytes);
-  let b64 = btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  return b64;
 }
 </script>
 </body>
