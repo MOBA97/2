@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Вход в CRM</title>
+<meta name="color-scheme" content="light dark">
+<style>
+:root{ --bg:#0b0c10; --card:#111317; --text:#e5e7eb; --muted:#9aa1aa; --line:#23262d; --brand:#19c37d; --bad:#ef4444 }
+@media (prefers-color-scheme: light){
+  :root{ --bg:#f6f7f9; --card:#fff; --text:#1f2328; --muted:#6b7280; --line:#e5e7eb }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif}
+.wrap{max-width:980px;margin:6vh auto;padding:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+h1{margin:0 0 12px;font-size:22px}
+label{display:block;margin:10px 0 4px;color:var(--muted);font-size:13px}
+input{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--text)}
+.btn{padding:10px 14px;border:0;border-radius:10px;background:var(--brand);color:#fff;font-weight:600;cursor:pointer}
+.msg{margin-top:10px;font-size:13px;color:var(--bad);min-height:18px}
+.linkbtn{display:inline-block;padding:8px 10px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:var(--text);background:transparent;cursor:pointer}
+.footer{margin-top:14px;font-size:12px;color:var(--muted);text-align:center}
+.hidden{display:none}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.badge-ok{background:#1f9d62;color:#fff;border:0;padding:2px 8px;border-radius:999px;font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px}
+.cardx{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--card)}
+.cardx h3{margin:0 0 6px;font-size:16px}
+.kvrow{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.badge{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
+.btn-row{display:flex;gap:8px;margin-top:10px}
+.inputline{display:flex;gap:6px;margin-top:8px}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th,.tbl td{padding:6px;border-bottom:1px solid var(--line);text-align:left}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Вход в CRM</h1>
+
+      <div id="form">
+        <label for="login">Логин</label>
+        <input id="login" autocomplete="username" autofocus value="admin">
+        <label for="pass">Пароль</label>
+        <input id="pass" type="password" autocomplete="current-password">
+        <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
+          <button class="btn" id="go">Войти</button>
+          <label style="display:flex;gap:6px;align-items:center"><input id="remember" type="checkbox"> Запомнить меня</label>
+          <button class="linkbtn" type="button" id="toggle">Показать</button>
+        </div>
+        <div class="msg" id="msg"></div>
+        <div class="footer">Авторизация по листу «Users» (salt + SHA-256 проверка на сервере)</div>
+      </div>
+
+      <div id="welcome" class="hidden">
+        <div class="header">
+          <div>
+            <div style="font-size:14px">Пользователь: <b id="who"></b></div>
+            <div style="font-size:13px;color:var(--muted)">Роль: <span id="role"></span> <span id="cap" class="badge-ok hidden">может редактировать всё</span></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <a id="home" class="linkbtn" target="_blank" rel="noopener">Моя панель</a>
+            <button class="linkbtn" id="logout" title="Выйти">Выход</button>
+          </div>
+        </div>
+
+        <div class="grid" id="sections"></div>
+
+        <details style="margin-top:14px">
+          <summary>Сменить пароль</summary>
+          <div style="margin-top:8px; display:grid; gap:6px; max-width:420px">
+            <input id="oldp" type="password" placeholder="Старый пароль">
+            <input id="newp" type="password" placeholder="Новый пароль">
+            <button class="btn" id="chg">Обновить пароль</button>
+            <div class="msg" id="msg2"></div>
+          </div>
+        </details>
+
+        <div id="admin" class="hidden" style="margin-top:16px">
+          <h2 style="margin:0 0 8px;font-size:18px">Панель администратора</h2>
+
+          <div class="card" style="padding:12px;margin-bottom:10px">
+            <h3 style="margin:0 0 8px;font-size:16px">Статистика</h3>
+            <div id="stats" class="grid"></div>
+          </div>
+
+          <div class="card" style="padding:12px">
+            <h3 style="margin:0 0 8px;font-size:16px">Пользователи</h3>
+            <div style="overflow:auto;max-height:360px;border:1px solid var(--line);border-radius:10px">
+              <table class="tbl" id="usersTable">
+                <thead><tr><th>login</th><th>role</th><th>aliases</th><th>enabled</th><th>actions</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <details style="margin-top:10px">
+              <summary>Создать/обновить пользователя</summary>
+              <div style="display:grid;gap:8px;margin-top:8px;max-width:520px">
+                <input id="u_login" placeholder="login (обязателен)">
+                <input id="u_display" placeholder="display (имя)">
+                <input id="u_home" placeholder="home (URL панели)">
+                <input id="u_aliases" placeholder="aliases: клиенты,заказы,склад">
+                <select id="u_role"><option value="viewer">viewer</option><option value="editor">editor</option><option value="admin">admin</option></select>
+                <label><input type="checkbox" id="u_enabled"> enabled</label>
+                <label><input type="checkbox" id="u_can"> can_edit_all</label>
+                <input id="u_newpass" placeholder="новый пароль (опционально)">
+                <button class="btn" id="u_save">Сохранить</button>
+                <div class="msg" id="u_msg"></div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+const msg = t => { $('#msg').textContent = t||''; };
+
+$('#toggle').addEventListener('click', ()=>{ const p=$('#pass'); p.type=(p.type==='password')?'text':'password'; });
+$('#go').addEventListener('click', doLogin);
+document.addEventListener('keydown', e=>{ if(e.key==='Enter' && !$('#welcome').classList.contains('hidden')){} else if(e.key==='Enter'){ doLogin(); } });
+
+$('#logout')?.addEventListener('click', ()=>{
+  localStorage.removeItem('crm_token'); localStorage.removeItem('crm_login');
+  $('#welcome').classList.add('hidden'); $('#form').classList.remove('hidden');
+  $('#pass').value=''; $('#login').focus();
+});
+$('#chg')?.addEventListener('click', ()=>{
+  $('#msg2').textContent='';
+  google.script.run.withSuccessHandler(res=>{
+    $('#msg2').textContent = res.ok ? 'Пароль обновлён' : (res.msg||'Ошибка');
+  }).changePassword(localStorage.getItem('crm_login'), $('#oldp').value, $('#newp').value);
+});
+
+function renderSections(sections){
+  const box = $('#sections'); box.innerHTML='';
+  (sections||[]).forEach(s=>{
+    const el = document.createElement('div');
+    el.className='cardx';
+    el.innerHTML = `
+      <h3>${s.title}</h3>
+      <div class="kvrow"><small style="color:var(--muted)">${s.description||' '}</small><span class="badge">записей: ${s.count}</span></div>
+      <div class="btn-row">
+        <button class="btn" data-open="${s.alias}">Открыть</button>
+        ${s.protected ? '<div class="inputline"><input type="password" placeholder="Пароль раздела" data-pass="'+s.alias+'"><button class="linkbtn" data-check="'+s.alias+'">Проверить</button></div>' : ''}
+      </div>`;
+    box.appendChild(el);
+  });
+
+  box.querySelectorAll('[data-open]').forEach(b=>{
+    b.addEventListener('click', e=>{
+      const alias = e.currentTarget.dataset.open;
+      const sec = (window._sections||[]).find(x=>x.alias===alias);
+      if (!sec) return;
+      if (!sec.protected){ window.open(sec.url,'_blank','noopener'); return; }
+      const inp = box.querySelector('input[data-pass="'+alias+'"]');
+      const pwd = (inp && inp.value) ? inp.value : '';
+      if (!pwd){ alert('Введите пароль раздела'); return; }
+      google.script.run.withSuccessHandler(r=>{
+        if (r && r.ok) window.open(sec.url,'_blank','noopener');
+        else alert(r && r.msg ? r.msg : 'Ошибка проверки');
+      }).verifySectionPassword(alias, pwd);
+    });
+  });
+
+  box.querySelectorAll('[data-check]').forEach(b=>{
+    b.addEventListener('click', e=>{
+      const alias = e.currentTarget.dataset.check;
+      const inp = box.querySelector('input[data-pass="'+alias+'"]');
+      const pwd = (inp && inp.value) ? inp.value : '';
+      if (!pwd){ alert('Введите пароль раздела'); return; }
+      google.script.run.withSuccessHandler(r=>{
+        alert(r && r.ok ? 'Пароль раздела верный' : (r && r.msg ? r.msg : 'Ошибка'));
+      }).verifySectionPassword(alias, pwd);
+    });
+  });
+}
+
+function showAdminIfNeeded(user){
+  const isAdmin = (user.role==='admin' || user.can_edit_all===true);
+  const box = $('#admin'); if (!box) return;
+  if (!isAdmin){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+
+  const me = localStorage.getItem('crm_login')||'';
+  google.script.run.withSuccessHandler(res=>{
+    if(!res || !res.ok) return;
+    const S = $('#stats'); S.innerHTML='';
+    Object.entries(res.stats).forEach(([k,v])=>{
+      const d=document.createElement('div'); d.className='cardx';
+      d.innerHTML = `<div style="font-size:12px;color:var(--muted)">${k}</div><div style="font-size:22px;font-weight:700">${v}</div>`;
+      S.appendChild(d);
+    });
+
+    const TB = $('#usersTable tbody'); TB.innerHTML='';
+    res.users.forEach(u=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML = `
+        <td>${u.login}</td><td>${u.role}</td><td>${u.aliases}</td>
+        <td>${u.enabled?'TRUE':'FALSE'}</td>
+        <td>
+          <button class="linkbtn" data-act="toggle" data-login="${u.login}" data-en="${!u.enabled}">${u.enabled?'Отключить':'Включить'}</button>
+          <button class="linkbtn" data-act="reset" data-login="${u.login}">Сбросить пароль</button>
+        </td>`;
+      TB.appendChild(tr);
+    });
+    TB.querySelectorAll('button').forEach(b=>{
+      b.addEventListener('click', e=>{
+        const act=e.target.dataset.act, login=e.target.dataset.login;
+        if(act==='toggle'){
+          const en = e.target.dataset.en==='true';
+          google.script.run.withSuccessHandler(()=>showAdminIfNeeded(user)).adminToggleUser(me, login, en);
+        }else if(act==='reset'){
+          const np = prompt('Новый пароль для '+login); if(!np) return;
+          google.script.run.withSuccessHandler(()=>showAdminIfNeeded(user)).adminResetPassword(me, login, np);
+        }
+      });
+    });
+  }).getDashboard(me));
+}
+
+function doLogin(){
+  msg('');
+  const login=$('#login').value.trim();
+  const password=$('#pass').value;
+  if(!login || !password){ msg('Введите логин и пароль'); return; }
+
+  $('#go').disabled=true;
+  google.script.run.withSuccessHandler(res=>{
+    $('#go').disabled=false;
+    if(!res || !res.ok){ msg(res && res.msg ? res.msg : 'Ошибка входа'); return; }
+
+    if ($('#remember').checked){
+      localStorage.setItem('crm_login', login);
+      localStorage.setItem('crm_token', res.token);
+    }else{
+      localStorage.removeItem('crm_login'); localStorage.removeItem('crm_token');
+    }
+
+    $('#form').classList.add('hidden');
+    $('#welcome').classList.remove('hidden');
+
+    $('#who').textContent = res.user.display || res.user.login;
+    $('#role').textContent = res.user.role;
+    if(res.user.can_edit_all) $('#cap').classList.remove('hidden'); else $('#cap').classList.add('hidden');
+
+    const home = res.user.home || '';
+    if(home){ $('#home').href = home; } else { $('#home').classList.add('hidden'); }
+
+    window._sections = res.sections || [];
+    renderSections(window._sections);
+
+    showAdminIfNeeded(res.user);
+  }).login(login, password);
+}
+</script>
+</body>
+</html>
