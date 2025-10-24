@@ -1,262 +1,364 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Вход в CRM</title>
-<meta name="color-scheme" content="light dark">
-<style>
-:root{ --bg:#0b0c10; --card:#111317; --text:#e5e7eb; --muted:#9aa1aa; --line:#23262d; --brand:#19c37d; --bad:#ef4444 }
-@media (prefers-color-scheme: light){
-  :root{ --bg:#f6f7f9; --card:#fff; --text:#1f2328; --muted:#6b7280; --line:#e5e7eb }
-}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif}
-.wrap{max-width:980px;margin:6vh auto;padding:20px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
-h1{margin:0 0 12px;font-size:22px}
-label{display:block;margin:10px 0 4px;color:var(--muted);font-size:13px}
-input{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--text)}
-.btn{padding:10px 14px;border:0;border-radius:10px;background:var(--brand);color:#fff;font-weight:600;cursor:pointer}
-.msg{margin-top:10px;font-size:13px;color:var(--bad);min-height:18px}
-.linkbtn{display:inline-block;padding:8px 10px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:var(--text);background:transparent;cursor:pointer}
-.footer{margin-top:14px;font-size:12px;color:var(--muted);text-align:center}
-.hidden{display:none}
-.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.badge-ok{background:#1f9d62;color:#fff;border:0;padding:2px 8px;border-radius:999px;font-size:12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px}
-.cardx{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--card)}
-.cardx h3{margin:0 0 6px;font-size:16px}
-.kvrow{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-.badge{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
-.btn-row{display:flex;gap:8px;margin-top:10px}
-.inputline{display:flex;gap:6px;margin-top:8px}
-.tbl{width:100%;border-collapse:collapse}
-.tbl th,.tbl td{padding:6px;border-bottom:1px solid var(--line);text-align:left}
-</style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Вход в CRM</h1>
+/*** === КОНФИГ (всё внутри одной таблицы) === ***/
+const USERS_SHEET   = 'Users';       // логины
+const SECTIONS_SHEET= 'Sections';    // alias | title | description | enabled | salt | passhash
+const AUDIT_SHEET   = 'Audit';       // журнал
 
-      <div id="form">
-        <label for="login">Логин</label>
-        <input id="login" autocomplete="username" autofocus value="admin">
-        <label for="pass">Пароль</label>
-        <input id="pass" type="password" autocomplete="current-password">
-        <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
-          <button class="btn" id="go">Войти</button>
-          <label style="display:flex;gap:6px;align-items:center"><input id="remember" type="checkbox"> Запомнить меня</label>
-          <button class="linkbtn" type="button" id="toggle">Показать</button>
-        </div>
-        <div class="msg" id="msg"></div>
-        <div class="footer">Авторизация по листу «Users» (salt + SHA-256 проверка на сервере)</div>
-      </div>
+// Алиасы (ключ -> имя листа в ЭТОЙ таблице)
+const ALIASES_SHEET = {
+  'клиенты':'Клиенты',
+  'заказы':'Заказы',
+  'склад':'Склад',
+  'брак':'Брак',
+  'возвраты':'Возвраты',
+  'сервисы':'Сервисы',
+  'оплаты':'Оплаты',
+};
 
-      <div id="welcome" class="hidden">
-        <div class="header">
-          <div>
-            <div style="font-size:14px">Пользователь: <b id="who"></b></div>
-            <div style="font-size:13px;color:var(--muted)">Роль: <span id="role"></span> <span id="cap" class="badge-ok hidden">может редактировать всё</span></div>
-          </div>
-          <div style="display:flex;gap:8px">
-            <a id="home" class="linkbtn" target="_blank" rel="noopener">Моя панель</a>
-            <button class="linkbtn" id="logout" title="Выйти">Выход</button>
-          </div>
-        </div>
+// Подписи по умолчанию
+const ALIAS_LABEL = {
+  'клиенты':'Клиенты',
+  'заказы':'Заказы',
+  'склад':'Склад',
+  'брак':'Брак',
+  'возвраты':'Возвраты',
+  'сервисы':'Сервисы',
+  'оплаты':'Оплаты',
+};
 
-        <div class="grid" id="sections"></div>
+// Домашний лист (Моя панель)
+const ROLE_HOME_SHEET = { admin:'Главная', editor:'Клиенты', viewer:'Склад' };
 
-        <details style="margin-top:14px">
-          <summary>Сменить пароль</summary>
-          <div style="margin-top:8px; display:grid; gap:6px; max-width:420px">
-            <input id="oldp" type="password" placeholder="Старый пароль">
-            <input id="newp" type="password" placeholder="Новый пароль">
-            <button class="btn" id="chg">Обновить пароль</button>
-            <div class="msg" id="msg2"></div>
-          </div>
-        </details>
+// Синонимы (поддержка старых английских алиасов)
+const ALIAS_SYNONYMS = { clients:'клиенты', orders:'заказы', stock:'склад' };
+function normAlias(a){ a=String(a||'').trim().toLowerCase(); return ALIAS_SYNONYMS[a] || a; }
 
-        <div id="admin" class="hidden" style="margin-top:16px">
-          <h2 style="margin:0 0 8px;font-size:18px">Панель администратора</h2>
-
-          <div class="card" style="padding:12px;margin-bottom:10px">
-            <h3 style="margin:0 0 8px;font-size:16px">Статистика</h3>
-            <div id="stats" class="grid"></div>
-          </div>
-
-          <div class="card" style="padding:12px">
-            <h3 style="margin:0 0 8px;font-size:16px">Пользователи</h3>
-            <div style="overflow:auto;max-height:360px;border:1px solid var(--line);border-radius:10px">
-              <table class="tbl" id="usersTable">
-                <thead><tr><th>login</th><th>role</th><th>aliases</th><th>enabled</th><th>actions</th></tr></thead>
-                <tbody></tbody>
-              </table>
-            </div>
-
-            <details style="margin-top:10px">
-              <summary>Создать/обновить пользователя</summary>
-              <div style="display:grid;gap:8px;margin-top:8px;max-width:520px">
-                <input id="u_login" placeholder="login (обязателен)">
-                <input id="u_display" placeholder="display (имя)">
-                <input id="u_home" placeholder="home (URL панели)">
-                <input id="u_aliases" placeholder="aliases: клиенты,заказы,склад">
-                <select id="u_role"><option value="viewer">viewer</option><option value="editor">editor</option><option value="admin">admin</option></select>
-                <label><input type="checkbox" id="u_enabled"> enabled</label>
-                <label><input type="checkbox" id="u_can"> can_edit_all</label>
-                <input id="u_newpass" placeholder="новый пароль (опционально)">
-                <button class="btn" id="u_save">Сохранить</button>
-                <div class="msg" id="u_msg"></div>
-              </div>
-            </details>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-<script>
-const $ = s => document.querySelector(s);
-const msg = t => { $('#msg').textContent = t||''; };
-
-$('#toggle').addEventListener('click', ()=>{ const p=$('#pass'); p.type=(p.type==='password')?'text':'password'; });
-$('#go').addEventListener('click', doLogin);
-document.addEventListener('keydown', e=>{ if(e.key==='Enter' && !$('#welcome').classList.contains('hidden')){} else if(e.key==='Enter'){ doLogin(); } });
-
-$('#logout')?.addEventListener('click', ()=>{
-  localStorage.removeItem('crm_token'); localStorage.removeItem('crm_login');
-  $('#welcome').classList.add('hidden'); $('#form').classList.remove('hidden');
-  $('#pass').value=''; $('#login').focus();
-});
-$('#chg')?.addEventListener('click', ()=>{
-  $('#msg2').textContent='';
-  google.script.run.withSuccessHandler(res=>{
-    $('#msg2').textContent = res.ok ? 'Пароль обновлён' : (res.msg||'Ошибка');
-  }).changePassword(localStorage.getItem('crm_login'), $('#oldp').value, $('#newp').value);
-});
-
-function renderSections(sections){
-  const box = $('#sections'); box.innerHTML='';
-  (sections||[]).forEach(s=>{
-    const el = document.createElement('div');
-    el.className='cardx';
-    el.innerHTML = `
-      <h3>${s.title}</h3>
-      <div class="kvrow"><small style="color:var(--muted)">${s.description||' '}</small><span class="badge">записей: ${s.count}</span></div>
-      <div class="btn-row">
-        <button class="btn" data-open="${s.alias}">Открыть</button>
-        ${s.protected ? '<div class="inputline"><input type="password" placeholder="Пароль раздела" data-pass="'+s.alias+'"><button class="linkbtn" data-check="'+s.alias+'">Проверить</button></div>' : ''}
-      </div>`;
-    box.appendChild(el);
-  });
-
-  box.querySelectorAll('[data-open]').forEach(b=>{
-    b.addEventListener('click', e=>{
-      const alias = e.currentTarget.dataset.open;
-      const sec = (window._sections||[]).find(x=>x.alias===alias);
-      if (!sec) return;
-      if (!sec.protected){ window.open(sec.url,'_blank','noopener'); return; }
-      const inp = box.querySelector('input[data-pass="'+alias+'"]');
-      const pwd = (inp && inp.value) ? inp.value : '';
-      if (!pwd){ alert('Введите пароль раздела'); return; }
-      google.script.run.withSuccessHandler(r=>{
-        if (r && r.ok) window.open(sec.url,'_blank','noopener');
-        else alert(r && r.msg ? r.msg : 'Ошибка проверки');
-      }).verifySectionPassword(alias, pwd);
-    });
-  });
-
-  box.querySelectorAll('[data-check]').forEach(b=>{
-    b.addEventListener('click', e=>{
-      const alias = e.currentTarget.dataset.check;
-      const inp = box.querySelector('input[data-pass="'+alias+'"]');
-      const pwd = (inp && inp.value) ? inp.value : '';
-      if (!pwd){ alert('Введите пароль раздела'); return; }
-      google.script.run.withSuccessHandler(r=>{
-        alert(r && r.ok ? 'Пароль раздела верный' : (r && r.msg ? r.msg : 'Ошибка'));
-      }).verifySectionPassword(alias, pwd);
-    });
-  });
+/*** === УТИЛИТЫ === ***/
+function doGet(){
+  return HtmlService.createTemplateFromFile('Index').evaluate()
+    .setTitle('Вход в CRM')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function showAdminIfNeeded(user){
-  const isAdmin = (user.role==='admin' || user.can_edit_all===true);
-  const box = $('#admin'); if (!box) return;
-  if (!isAdmin){ box.classList.add('hidden'); return; }
-  box.classList.remove('hidden');
-
-  const me = localStorage.getItem('crm_login')||'';
-  google.script.run.withSuccessHandler(res=>{
-    if(!res || !res.ok) return;
-    const S = $('#stats'); S.innerHTML='';
-    Object.entries(res.stats).forEach(([k,v])=>{
-      const d=document.createElement('div'); d.className='cardx';
-      d.innerHTML = `<div style="font-size:12px;color:var(--muted)">${k}</div><div style="font-size:22px;font-weight:700">${v}</div>`;
-      S.appendChild(d);
-    });
-
-    const TB = $('#usersTable tbody'); TB.innerHTML='';
-    res.users.forEach(u=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML = `
-        <td>${u.login}</td><td>${u.role}</td><td>${u.aliases}</td>
-        <td>${u.enabled?'TRUE':'FALSE'}</td>
-        <td>
-          <button class="linkbtn" data-act="toggle" data-login="${u.login}" data-en="${!u.enabled}">${u.enabled?'Отключить':'Включить'}</button>
-          <button class="linkbtn" data-act="reset" data-login="${u.login}">Сбросить пароль</button>
-        </td>`;
-      TB.appendChild(tr);
-    });
-    TB.querySelectorAll('button').forEach(b=>{
-      b.addEventListener('click', e=>{
-        const act=e.target.dataset.act, login=e.target.dataset.login;
-        if(act==='toggle'){
-          const en = e.target.dataset.en==='true';
-          google.script.run.withSuccessHandler(()=>showAdminIfNeeded(user)).adminToggleUser(me, login, en);
-        }else if(act==='reset'){
-          const np = prompt('Новый пароль для '+login); if(!np) return;
-          google.script.run.withSuccessHandler(()=>showAdminIfNeeded(user)).adminResetPassword(me, login, np);
-        }
-      });
-    });
-  }).getDashboard(me));
+function sha256Hex_(str){
+  const raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, str);
+  return raw.map(b => (b<0?b+256:b).toString(16).padStart(2,'0')).join('');
 }
 
-function doLogin(){
-  msg('');
-  const login=$('#login').value.trim();
-  const password=$('#pass').value;
-  if(!login || !password){ msg('Введите логин и пароль'); return; }
+function sheetUrlByName_(name){
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(name);
+  if (!sh) throw new Error(`Нет листа "${name}"`);
+  return `https://docs.google.com/spreadsheets/d/${ss.getId()}/edit#gid=${sh.getSheetId()}`;
+}
 
-  $('#go').disabled=true;
-  google.script.run.withSuccessHandler(res=>{
-    $('#go').disabled=false;
-    if(!res || !res.ok){ msg(res && res.msg ? res.msg : 'Ошибка входа'); return; }
+function countRows_(sheetName){
+  const sh = SpreadsheetApp.getActive().getSheetByName(sheetName);
+  if (!sh) return 0;
+  const last = sh.getLastRow(); if (last<2) return 0;
+  const a = sh.getRange(2,1,last-1,1).getValues();
+  return a.filter(r => String(r[0]).trim()!=='').length;
+}
 
-    if ($('#remember').checked){
-      localStorage.setItem('crm_login', login);
-      localStorage.setItem('crm_token', res.token);
-    }else{
-      localStorage.removeItem('crm_login'); localStorage.removeItem('crm_token');
+function getOrCreateSheet_(name){
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
+  return sh;
+}
+
+function logEvent_(kind, login, detail){
+  const sh = getOrCreateSheet_(AUDIT_SHEET);
+  if (sh.getLastRow()===0) sh.appendRow(['ts','kind','login','detail']);
+  sh.appendRow([new Date(), kind||'', login||'', detail||'']);
+}
+
+/*** === USERS === ***/
+function loadUsers_(){
+  const sh = SpreadsheetApp.getActive().getSheetByName(USERS_SHEET);
+  if (!sh) throw new Error(`Не найден лист "${USERS_SHEET}"`);
+  const rng = sh.getDataRange().getValues();
+  const head = rng.shift().map(h=>String(h).trim().toLowerCase());
+  const idx = n => head.indexOf(n);
+  ['login','salt','passhash','role','aliases','enabled'].forEach(n=>{
+    if (idx(n)<0) throw new Error(`В листе Users нет колонки: ${n}`);
+  });
+  const map = new Map();
+  rng.forEach(r=>{
+    const login = String(r[idx('login')]||'').trim();
+    if (!login) return;
+    const role  = String(r[idx('role')]||'').trim().toLowerCase();
+    const rec = {
+      salt:     String(r[idx('salt')]||'').trim(),
+      passhash: String(r[idx('passhash')]||'').trim().toLowerCase(),
+      role,
+      aliases:  String(r[idx('aliases')]||'').trim(),
+      enabled:  String(r[idx('enabled')]).toUpperCase()==='TRUE',
+      display:  head.includes('display') ? String(r[idx('display')]).trim() : login,
+      home:     head.includes('home')    ? String(r[idx('home')]).trim()    : sheetUrlByName_(ROLE_HOME_SHEET[role] || ROLE_HOME_SHEET.viewer),
+      can_edit_all: head.includes('can_edit_all')
+        ? (String(r[idx('can_edit_all')]).toUpperCase()==='TRUE')
+        : (role==='admin'),
+    };
+    map.set(login.toLowerCase(), rec);
+  });
+  return map;
+}
+
+/*** === РАЗДЕЛЫ === ***/
+function readSections_(aliasesArr){
+  const meta = {};
+  const sh = SpreadsheetApp.getActive().getSheetByName(SECTIONS_SHEET);
+  if (sh){
+    const v = sh.getDataRange().getValues();
+    const head = v.shift().map(h=>String(h).trim().toLowerCase());
+    const ix = n => head.indexOf(n);
+    v.forEach(r=>{
+      const alias = normAlias(r[ix('alias')]);
+      if (!alias) return;
+      meta[alias] = {
+        title: String(r[ix('title')]||'').trim(),
+        description: String(r[ix('description')]||'').trim(),
+        enabled: String(r[ix('enabled')]).toUpperCase()==='TRUE',
+        salt: String(r[ix('salt')]||'').trim(),
+        passhash: String(r[ix('passhash')]||'').trim().toLowerCase(),
+      };
+    });
+  }
+
+  const out = [];
+  (aliasesArr||[]).forEach(_a=>{
+    const a = normAlias(_a);
+    if (!(a in ALIASES_SHEET)) return;
+    const m = meta[a] || {};
+    if ('enabled' in m && !m.enabled) return;
+
+    const sheetName = ALIASES_SHEET[a];
+    const url = sheetUrlByName_(sheetName);
+    const count = countRows_(sheetName);
+    const title = m.title || ALIAS_LABEL[a] || a;
+    const description = m.description || '';
+    const protected_ = Boolean(m.salt && m.passhash);
+
+    out.push({ alias:a, title, description, url, count, protected: protected_ });
+  });
+  return out;
+}
+
+function verifySectionPassword(alias, password){
+  alias = normAlias(alias);
+  const sh = SpreadsheetApp.getActive().getSheetByName(SECTIONS_SHEET);
+  if (!sh) return { ok:false, msg:'Раздел не настроен' };
+  const v = sh.getDataRange().getValues();
+  const head = v.shift().map(h=>String(h).trim().toLowerCase());
+  const ia=head.indexOf('alias'), is=head.indexOf('salt'), ih=head.indexOf('passhash'), ie=head.indexOf('enabled');
+  for (let i=0;i<v.length;i++){
+    const r=v[i];
+    if (normAlias(r[ia])===alias){
+      if (String(r[ie]).toUpperCase()!=='TRUE') return { ok:false, msg:'Раздел отключён' };
+      const salt=String(r[is]||'').trim(), ph=String(r[ih]||'').trim().toLowerCase();
+      if (!salt || !ph) return { ok:true }; // пароль не требуется
+      const calc = sha256Hex_(salt + password);
+      return { ok: calc===ph, msg: calc===ph ? '' : 'Неверный пароль раздела' };
+    }
+  }
+  return { ok:false, msg:'Раздел не найден' };
+}
+
+/*** === АВТОРИЗАЦИЯ === ***/
+function login(login, password){
+  try{
+    login = String(login||'').trim().toLowerCase();
+    if (!login || !password) return { ok:false, msg:'Пустой логин или пароль' };
+
+    const users = loadUsers_();
+    const u = users.get(login);
+    if (!u) return { ok:false, msg:'Пользователь не найден' };
+    if (!u.enabled) return { ok:false, msg:'Учётная запись отключена' };
+
+    const calc = sha256Hex_(u.salt + password);
+    if (calc !== u.passhash) return { ok:false, msg:'Неверный пароль' };
+
+    const aliases = u.aliases ? u.aliases.split(/[,\s;]+/).map(normAlias).filter(Boolean) : [];
+    const sections = readSections_(aliases);
+
+    const stamp = new Date().toISOString();
+    const token = sha256Hex_([login, u.role, stamp, Session.getTemporaryActiveUserKey()||''].join('|'));
+
+    logEvent_('login_ok', login, '');
+    return {
+      ok:true,
+      user:{ login, display:u.display, role:u.role, can_edit_all:u.can_edit_all, home:u.home, aliases },
+      sections,
+      token
+    };
+  }catch(e){
+    logEvent_('login_fail', login, e.message);
+    return { ok:false, msg:'Ошибка сервера: '+e.message };
+  }
+}
+
+function changePassword(login, oldPassword, newPassword){
+  login = String(login||'').trim().toLowerCase();
+  if (!login || !oldPassword || !newPassword) return {ok:false,msg:'Пустые поля'};
+
+  const sh = SpreadsheetApp.getActive().getSheetByName(USERS_SHEET);
+  const v = sh.getDataRange().getValues();
+  const head = v[0].map(h=>String(h).trim().toLowerCase());
+  const iL=head.indexOf('login'), iS=head.indexOf('salt'), iH=head.indexOf('passhash'), iE=head.indexOf('enabled');
+
+  for (let r=1;r<v.length;r++){
+    const row=v[r];
+    if (String(row[iL]).trim().toLowerCase()!==login) continue;
+    if (String(row[iE]).toUpperCase()!=='TRUE') return {ok:false,msg:'Учётка отключена'};
+    const calc = sha256Hex_(String(row[iS]) + oldPassword);
+    if (String(row[iH]).toLowerCase()!==calc) return {ok:false,msg:'Старый пароль неверен'};
+    const salt = Utilities.getUuid().replace(/-/g,'').slice(0,16);
+    const passhash = sha256Hex_(salt + newPassword);
+    sh.getRange(r+1,iS+1).setValue(salt);
+    sh.getRange(r+1,iH+1).setValue(passhash);
+    logEvent_('password_changed', login, '');
+    return {ok:true,msg:'Пароль обновлён'};
+  }
+  return {ok:false,msg:'Пользователь не найден'};
+}
+
+/*** === АДМИН === ***/
+function assertAdmin_(requestorLogin){
+  const u = loadUsers_().get(String(requestorLogin||'').toLowerCase());
+  if (!u || !u.enabled) throw new Error('Нет доступа');
+  if (!(u.role==='admin' || u.can_edit_all===true)) throw new Error('Требуется роль admin');
+  return u;
+}
+
+function getDashboard(requestorLogin){
+  try{
+    assertAdmin_(requestorLogin);
+    const stats = {};
+    Object.entries(ALIASES_SHEET).forEach(([key, sheetName])=>{
+      stats[key] = countRows_(sheetName);
+    });
+
+    const users = [];
+    const sh = SpreadsheetApp.getActive().getSheetByName(USERS_SHEET);
+    const v = sh.getDataRange().getValues();
+    const head = v.shift().map(h=>String(h).trim().toLowerCase());
+    const idx = n => head.indexOf(n);
+    v.forEach(r=>{
+      const rec = {
+        login: String(r[idx('login')]).trim(),
+        role:  String(r[idx('role')]).trim(),
+        aliases: String(r[idx('aliases')]).trim(),
+        enabled: String(r[idx('enabled')]).toUpperCase()==='TRUE',
+        display: head.includes('display') ? String(r[idx('display')]).trim() : '',
+        home:    head.includes('home')    ? String(r[idx('home')]).trim()    : '',
+        can_edit_all: head.includes('can_edit_all')
+          ? (String(r[idx('can_edit_all')]).toUpperCase()==='TRUE')
+          : (String(r[idx('role')]).trim().toLowerCase()==='admin')
+      };
+      if (rec.login) users.push(rec);
+    });
+
+    return {ok:true, stats, users};
+  }catch(e){ return {ok:false, msg:e.message}; }
+}
+
+function adminUpsertUser(requestorLogin, payload){
+  try{
+    assertAdmin_(requestorLogin);
+    const sh = SpreadsheetApp.getActive().getSheetByName(USERS_SHEET);
+    const v = sh.getDataRange().getValues();
+    const head = v[0].map(h=>String(h).trim());
+    const M = new Map(head.map((h,i)=>[h.toLowerCase(),i]));
+    const need = ['login','salt','passhash','role','aliases','enabled'];
+    need.forEach(n=>{ if(!M.has(n)) throw new Error('Нет колонки '+n); });
+    const col = n => M.get(n);
+
+    let row = -1;
+    for (let r=1;r<v.length;r++){
+      if (String(v[r][col('login')]).trim().toLowerCase()===String(payload.login).toLowerCase()){ row=r+1; break; }
+    }
+    if (row<0) row = sh.getLastRow()+1;
+
+    sh.getRange(row,col('login')+1).setValue(payload.login);
+    sh.getRange(row,col('role')+1).setValue(payload.role||'viewer');
+    sh.getRange(row,col('aliases')+1).setValue(payload.aliases||'');
+    sh.getRange(row,col('enabled')+1).setValue(Boolean(payload.enabled));
+    if (M.has('display')) sh.getRange(row,col('display')+1).setValue(payload.display||'');
+    if (M.has('home'))    sh.getRange(row,col('home')+1).setValue(payload.home||'');
+    if (M.has('can_edit_all')) sh.getRange(row,col('can_edit_all')+1).setValue(Boolean(payload.can_edit_all));
+
+    if (payload.newPassword){
+      const salt = Utilities.getUuid().replace(/-/g,'').slice(0,16);
+      const passhash = sha256Hex_(salt + payload.newPassword);
+      sh.getRange(row,col('salt')+1).setValue(salt);
+      sh.getRange(row,col('passhash')+1).setValue(passhash);
+    } else if (v.length===1) {
+      sh.getRange(row,col('enabled')+1).setValue(false);
     }
 
-    $('#form').classList.add('hidden');
-    $('#welcome').classList.remove('hidden');
-
-    $('#who').textContent = res.user.display || res.user.login;
-    $('#role').textContent = res.user.role;
-    if(res.user.can_edit_all) $('#cap').classList.remove('hidden'); else $('#cap').classList.add('hidden');
-
-    const home = res.user.home || '';
-    if(home){ $('#home').href = home; } else { $('#home').classList.add('hidden'); }
-
-    window._sections = res.sections || [];
-    renderSections(window._sections);
-
-    showAdminIfNeeded(res.user);
-  }).login(login, password);
+    logEvent_('user_upsert', requestorLogin, payload.login);
+    return {ok:true};
+  }catch(e){ return {ok:false, msg:e.message}; }
 }
-</script>
-</body>
-</html>
+
+function adminToggleUser(requestorLogin, login, enabled){
+  try{
+    assertAdmin_(requestorLogin);
+    const sh = SpreadsheetApp.getActive().getSheetByName(USERS_SHEET);
+    const v = sh.getDataRange().getValues();
+    const head = v[0].map(h=>String(h).trim().toLowerCase());
+    const iL=head.indexOf('login'), iE=head.indexOf('enabled');
+    for (let r=1;r<v.length;r++){
+      if (String(v[r][iL]).trim().toLowerCase()===String(login).toLowerCase()){
+        sh.getRange(r+1, iE+1).setValue(Boolean(enabled));
+        logEvent_('user_toggle', requestorLogin, login+' -> '+enabled);
+        return {ok:true};
+      }
+    }
+    return {ok:false, msg:'Пользователь не найден'};
+  }catch(e){ return {ok:false, msg:e.message}; }
+}
+
+function adminResetPassword(requestorLogin, login, newPassword){
+  try{
+    assertAdmin_(requestorLogin);
+    const sh = SpreadsheetApp.getActive().getSheetByName(USERS_SHEET);
+    const v = sh.getDataRange().getValues();
+    const head = v[0].map(h=>String(h).trim().toLowerCase());
+    const iL=head.indexOf('login'), iS=head.indexOf('salt'), iH=head.indexOf('passhash');
+    for (let r=1;r<v.length;r++){
+      if (String(v[r][iL]).trim().toLowerCase()===String(login).toLowerCase()){
+        const salt = Utilities.getUuid().replace(/-/g,'').slice(0,16);
+        const passhash = sha256Hex_(salt + newPassword);
+        sh.getRange(r+1,iS+1).setValue(salt);
+        sh.getRange(r+1,iH+1).setValue(passhash);
+        logEvent_('user_reset_password', requestorLogin, login);
+        return {ok:true};
+      }
+    }
+    return {ok:false, msg:'Пользователь не найден'};
+  }catch(e){ return {ok:false, msg:e.message}; }
+}
+
+/*** === МЕНЮ: сгенерировать salt+hash === ***/
+function makeSaltHash(password){
+  if (!password) throw new Error('Пароль пуст');
+  const salt = Utilities.getUuid().replace(/-/g,'').slice(0,16);
+  const passhash = sha256Hex_(salt + password);
+  return { salt, passhash };
+}
+
+function onOpen(){
+  SpreadsheetApp.getUi()
+    .createMenu('CRM-Auth')
+    .addItem('Сгенерировать salt+hash…', 'menuMakeSaltHash_')
+    .addToUi();
+}
+
+function menuMakeSaltHash_(){
+  const ui = SpreadsheetApp.getUi();
+  const res = ui.prompt('Введите новый пароль', ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton()!==ui.Button.OK) return;
+  const {salt, passhash} = makeSaltHash(res.getResponseText());
+  ui.alert('Готово', `salt: ${salt}\npasshash: ${passhash}\n\nВставьте в лист Users или Sections.`, ui.ButtonSet.OK);
+}
